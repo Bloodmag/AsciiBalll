@@ -5,8 +5,28 @@ using ConsoleWindowRenderer;
 
 namespace asciiballl
 {
-    class Program
+    static class Program
     {
+        static private Mutex inputMutex = new Mutex();
+        static private Thread inputThread = new Thread(InputLoop);
+        static private (bool,ConsoleKeyInfo) keyPressed;
+
+        static void InputLoop()
+        {
+            while (true)
+            {
+                inputMutex.WaitOne();
+                if (Console.KeyAvailable)
+                {
+                    keyPressed.Item2 = Console.ReadKey(false);
+                    keyPressed.Item1 = true;
+                    Thread.Sleep(1000/100);
+                }
+                else keyPressed.Item1 = false;
+                inputMutex.ReleaseMutex();
+            }
+        }
+
         static string[] map = new string[13] { "#*#*#*#*",
                                         "*000000#",
                                         "#000000*",
@@ -35,6 +55,7 @@ namespace asciiballl
         static void Main(string[] args)
         {
             W.SetupBuffer(viewWidth, viewHeight);
+            //inputThread.Start();
             Console.CursorVisible = false;
 
             Vector2d pos = new Vector2d(2, 2);
@@ -55,34 +76,46 @@ namespace asciiballl
                             //Console.ForegroundColor = (h.Item4) ? ConsoleColor.Red : ConsoleColor.White;
                             //Console.SetCursorPosition(i, j);
                             //Console.Write(brush[h.Item3]);
-                            frame[j * viewWidth + i] = h.Item4? brush[0]:brush[1];
+                            W.Buf[j * viewWidth + i].Char.UnicodeChar = brush[1];
+                            W.Buf[j * viewWidth + i].Attributes = h.Item4? (short)0b11110111: (short)0b11000100;
                         }
                         else
                         {
-                            //Console.Write(' ');
-                            frame[j * viewWidth + i] = ' ';
+                            if (j >= h.Item2)
+                            {
+                                W.Buf[j * viewWidth + i].Char.UnicodeChar = '.';
+                                W.Buf[j * viewWidth + i].Attributes = (short)0b10100010;
+                            }
+                            if(j< h.Item2)
+                            {
+                                W.Buf[j * viewWidth + i].Char.UnicodeChar = ' ';
+                                W.Buf[j * viewWidth + i].Attributes = (short)0b10010000;
+                            }
                         }
                             
                     }
                 }
                 if (Console.KeyAvailable)
                 {
-                    var key = Console.ReadKey(true);
-                    if (key.Key == ConsoleKey.LeftArrow) dir.Rotate(-0.1);
-                    if (key.Key == ConsoleKey.RightArrow) dir.Rotate(0.1);
-                    if (key.Key == ConsoleKey.UpArrow) pos+=dir/10;
+                    var key = Console.ReadKey(true).Key;
+                    if (key == ConsoleKey.LeftArrow) dir.Rotate(-0.1);
+                    if (key == ConsoleKey.RightArrow) dir.Rotate(0.1);
+                    if (key == ConsoleKey.UpArrow) pos+=dir/10;
+                    while (Console.KeyAvailable)
+                        Console.ReadKey(true);
+
                 }
-                for(int i = 0; i< viewHeight * viewWidth;i++)
-                {
-                    W.Buf[i].Char.AsciiChar = (byte)frame[i];
-                    W.Buf[i].Attributes = 3;
-                }
-                W.Draw();
+                //for(int i = 0; i< viewHeight * viewWidth;i++)
+                //{
+                //    W.Buf[i].Char.UnicodeChar = frame[i];
+                //    W.Buf[i].Attributes = 3;
+                //}
+                W.DrawAsync();
                 //Console.SetCursorPosition(0, 0);
                 //Console.Write(frame);
                 //Console.SetCursorPosition(0, 0);
                 //Console.Write("dir.X = {0}  dir.y = {1}   {2}",dir.X.ToString(),dir.Y.ToString(),brush[0]);
-                Thread.Sleep(50);
+                //Thread.Sleep(10);
             }
 
         }

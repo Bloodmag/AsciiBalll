@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading.Tasks;
 using Microsoft.Win32.SafeHandles;
 
 namespace ConsoleWindowRenderer
@@ -18,14 +20,14 @@ namespace ConsoleWindowRenderer
         }
     };
 
-    [StructLayout(LayoutKind.Explicit)]
+    [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Unicode)]
     public struct CharUnion
     {
         [FieldOffset(0)] public char UnicodeChar;
         [FieldOffset(0)] public byte AsciiChar;
     }
 
-    [StructLayout(LayoutKind.Explicit)]
+    [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Unicode)]
     public struct CharInfo
     {
         [FieldOffset(0)] public CharUnion Char;
@@ -54,12 +56,15 @@ namespace ConsoleWindowRenderer
             IntPtr template);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        static extern bool WriteConsoleOutput(
+        static extern bool WriteConsoleOutputW(
           SafeFileHandle hConsoleOutput,
           CharInfo[] lpBuffer,
           Coord dwBufferSize,
           Coord dwBufferCoord,
           ref SmallRect lpWriteRegion);
+
+        [DllImport("Kernel32.dll", SetLastError = true)]
+        static extern bool SetConsoleCP(uint wCodePageID);
 
         
 
@@ -87,12 +92,18 @@ namespace ConsoleWindowRenderer
             rect = new SmallRect() { Left = 0, Top = 0, Right = (short)width, Bottom = (short)height };
             buf = new CharInfo[width*height];
             Console.SetWindowSize(width, height);
+            Console.OutputEncoding = Encoding.Unicode;
+
             return true;
         }
 
-        public static bool Draw()
+        public static async void DrawAsync()
         {
-            return WriteConsoleOutput(h, Buf,
+            await Task.Run(() => Draw());
+        }
+        public static void  Draw()
+        {
+            WriteConsoleOutputW(h, Buf,
                               new Coord() { X = (short)width, Y = (short)height },
                               new Coord() { X = 0, Y = 0 },
                               ref rect);
